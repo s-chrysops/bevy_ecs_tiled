@@ -2,6 +2,16 @@
 
 ## [unreleased]
 
+## v0.7.1
+
+### Features
+
+- Add a new `TiledColliderCreated` event and an associated observer, when a new collider is spawned.
+
+### Bugfixes
+
+- Do not restrict `world_chunking` system to camera with `Changed<Transform>` (#94)
+
 ## v0.7.0
 
 **BREAKING CHANGES**
