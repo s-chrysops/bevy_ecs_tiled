@@ -2,6 +2,71 @@
 
 ## [unreleased]
 
+## v0.8.0
+
+**BREAKING CHANGES**
+This version brings breaking changes.
+A [migration guide](https://adrien-bon.github.io/bevy_ecs_tiled/migrations/v0_8.html) is available to help adapt to these.
+
+### Features
+
+- Integrate the `geo` crate and rework how we handle physics colliders.  
+  Special thanks to @Niashi24 for inspiration on the polygons aggregation code !
+- Colliders entity now have `TiledColliderOrigin` and `TiledColliderPolygons` components
+- Explicit `SystemSet` to allow systems ordering for user applications.
+- Rationalize which types we re-export (#88).
+- Attach shape information to `TiledObject` (#77).
+- Automatically adjust translation for objects on the same layer to avoid Z-fighting (#81).
+- Apply scaling and flipping for tile objects (#99).
+
+### Changed
+
+- Several types or functions have been renamed to better reflect what they actually do.
+- Rework the `Event` APi and provide an unified way to handle events and access underlying Tiled data.
+- Add helpers functions to the `TiledMapStorage` component so it's easier to work with.
+- Several files have been moved around or renamed.
+- Improve the physics colliders filter API and use it for filtering exported types (#102).
+
+### Bugfixes
+
+- Rotation is not taken into account for tile objects (#76).
+- Tile objects position for isometric maps (#105).
+- Fix `bevy_color::color::Color` type export, it's directly mapped to Tiled own color type.
+
+### Documentation
+
+- Overall improvement of the documentation.
+- Add some example to enable `physics` and `user_properties` features (#100).
+- Add a FAQ entry about `.world` loading (#82).
+
+## v0.7.5
+
+### Bugfixes
+
+- Avoid crash when targeting `wasm` (#115).
+
+## v0.7.4
+
+### Features
+
+- Add `iyes_perf_ui` debug UI when running examples
+
+### Bugfixes
+
+- Fix regression introduced in v0.7.3, prevent crash when using embedded tilesets (#110)
+
+## v0.7.3
+
+### Features
+
+- Add support for object templates files (.tx) (#98)
+
+## v0.7.2
+
+### Bugfixes
+
+- Properly spawn all maps from a world when not using chunking, we were missing the last one (#96)
+
 ## v0.7.1
 
 ### Features

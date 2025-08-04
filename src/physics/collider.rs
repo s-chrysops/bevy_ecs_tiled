@@ -1,163 +1,221 @@
-//! Module that handles colliders
+//! Collider management for Tiled maps and worlds.
+//!
+//! This module defines marker components and events for colliders generated from Tiled maps and objects.
+//! It provides types to distinguish between colliders created from tile layers and object layers,
+//! as well as utilities for extracting tile data relevant to collider generation.
+
+use std::collections::VecDeque;
+
 use crate::prelude::*;
 use bevy::prelude::*;
-use tiled::{Layer, Object, Tile};
+use geo::BooleanOps;
+use tiled::{ObjectLayerData, ObjectShape};
 
-/// Marker component for colliders
-#[derive(Component, Default, Reflect, Copy, Clone, Debug)]
-#[reflect(Component, Default, Debug)]
+/// Marker component for colliders origin
+///
+/// Helps to distinguish between colliders created from Tiled objects and those created from Tiled tile layers.
+#[derive(Component, Reflect, Copy, PartialEq, Clone, Debug)]
+#[reflect(Component, Debug)]
+pub enum TiledColliderOrigin {
+    /// Collider is created by a [`tiled::TileLayer`] (ie. a collection of [`Tile`])
+    TilesLayer,
+    /// Collider is created by an [`tiled::Object`]
+    Object,
+}
+
+/// Collider raw geometry
+#[derive(Component, PartialEq, Clone, Debug, Deref)]
 #[require(Transform)]
-pub struct TiledColliderMarker;
+pub struct TiledColliderPolygons(pub MultiPolygon<f32>);
 
-/// Describe the type of the [TiledCollider].
-#[derive(Copy, Clone, Debug)]
-pub enum TiledCollider {
-    /// Collider is created by a tiles [Layer]
-    TilesLayer {
-        /// ID of the layer
-        layer_id: usize,
-    },
-    /// Collider is created by an [Object]
-    Object {
-        /// ID of the layer containing the [Object].
-        layer_id: usize,
-        /// ID of the [Object].
-        object_id: usize,
-    },
+/// Event emitted when a collider is created from a Tiled map or world.
+///
+/// You can determine collider origin using the inner [`TiledColliderOrigin`].
+/// See also [`TiledEvent`]
+#[derive(Clone, Copy, PartialEq, Debug, Reflect, Deref)]
+#[reflect(Clone, PartialEq)]
+pub struct ColliderCreated(pub TiledColliderOrigin);
+
+pub(crate) fn plugin(app: &mut App) {
+    app.register_type::<TiledColliderOrigin>();
+    app.add_event::<TiledEvent<ColliderCreated>>()
+        .register_type::<TiledEvent<ColliderCreated>>();
 }
 
-impl TiledCollider {
-    /// Create a new [TiledCollider::Object].
-    pub fn from_object(layer_id: usize, object_id: usize) -> Self {
-        Self::Object {
-            layer_id,
-            object_id,
-        }
-    }
-
-    /// Create a new [TiledCollider::TilesLayer].
-    pub fn from_tiles_layer(layer_id: usize) -> Self {
-        Self::TilesLayer { layer_id }
-    }
-}
-
-impl<'a> TiledCollider {
-    /// Get the underlying [Layer] of a [TiledCollider].
-    pub fn get_layer(&self, tiled_map: &'a TiledMap) -> Option<Layer<'a>> {
-        match self {
-            TiledCollider::Object {
-                layer_id,
-                object_id: _,
-            } => tiled_map.map.get_layer(*layer_id),
-            TiledCollider::TilesLayer { layer_id } => tiled_map.map.get_layer(*layer_id),
-        }
-    }
-
-    /// Get the underlying [Object] of a [TiledCollider].
-    pub fn get_object(&self, tiled_map: &'a TiledMap) -> Option<Object<'a>> {
-        match self {
-            TiledCollider::Object {
-                layer_id,
-                object_id,
-            } => tiled_map
-                .map
-                .get_layer(*layer_id)
-                .and_then(|layer| layer.as_object_layer())
-                .and_then(|object_layer| object_layer.get_object(*object_id)),
-            _ => None,
-        }
-    }
-
-    /// Get a vector containing tiles in this layer as well as their relative position to their parent tileset layer.
+impl<'a> TiledEvent<ColliderCreated> {
+    /// Returns a vector containing [`Tile`]s in this layer as well as their
+    /// relative position from their parent [`crate::tiled::tile::TiledTilemap`] [`Entity``].
     pub fn get_tiles(
         &self,
-        tiled_map: &'a TiledMap,
+        assets: &'a Res<Assets<TiledMapAsset>>,
         anchor: &TilemapAnchor,
     ) -> Vec<(Vec2, Tile<'a>)> {
-        match self {
-            TiledCollider::TilesLayer { layer_id } => tiled_map
-                .map
-                .get_layer(*layer_id)
-                .and_then(|layer| layer.as_tile_layer())
-                .map(|layer| {
-                    let mut out = vec![];
-                    for_each_tile(tiled_map, &layer, |layer_tile, _, tile_pos, _| {
-                        if let Some(tile) = layer_tile.get_tile() {
-                            let grid_size = get_grid_size(&tiled_map.map);
-                            let tile_size = tile_size_from_grid(&grid_size);
-                            let tile_coords = tile_pos.center_in_world(
-                                &tiled_map.tilemap_size,
-                                &grid_size,
-                                &tile_size,
-                                &get_map_type(&tiled_map.map),
-                                anchor,
-                            );
-                            out.push((tile_coords, tile));
+        let Some(map_asset) = self.get_map_asset(assets) else {
+            return vec![];
+        };
+        self.get_layer(assets)
+            .and_then(|layer| layer.as_tile_layer())
+            .map(|layer| {
+                let mut out = vec![];
+                map_asset.for_each_tile(&layer, |layer_tile, _, tile_pos, _| {
+                    if let Some(tile) = layer_tile.get_tile() {
+                        let grid_size = grid_size_from_map(&map_asset.map);
+                        let tile_size = tile_size_from_grid_size(&grid_size);
+                        let map_type = tilemap_type_from_map(&map_asset.map);
+                        let tile_coords = tile_pos.center_in_world(
+                            &map_asset.tilemap_size,
+                            &grid_size,
+                            &tile_size,
+                            &map_type,
+                            anchor,
+                        );
+                        out.push((tile_coords, tile));
+                    }
+                });
+                out
+            })
+            .unwrap_or_default()
+    }
+}
+
+pub(crate) fn spawn_colliders<T: TiledPhysicsBackend>(
+    backend: &T,
+    commands: &mut Commands,
+    assets: &Res<Assets<TiledMapAsset>>,
+    anchor: &TilemapAnchor,
+    filter: &TiledFilter,
+    source: TiledEvent<ColliderCreated>,
+    parent: Entity,
+    event_writer: &mut EventWriter<TiledEvent<ColliderCreated>>,
+) {
+    let Some(map_asset) = source.get_map_asset(assets) else {
+        return;
+    };
+
+    let polygons = match *source.event {
+        TiledColliderOrigin::Object => {
+            if let Some(object) = source.get_object(assets) {
+                match object.get_tile() {
+                    // If the object does not have a tile, we can create a collider directly from itself
+                    None => TiledObject::from_object_data(&object)
+                        .polygon(&GlobalTransform::default())
+                        .map(|p| vec![p]),
+                    // If the object has a tile, we need to handle its collision data
+                    Some(object_tile) => object_tile.get_tile().map(|tile| {
+                        let Some(object_layer_data) = &tile.collision else {
+                            return vec![];
+                        };
+                        let ObjectShape::Rect { width, height } = object.shape else {
+                            return vec![];
+                        };
+
+                        let mut offset = Vec2::ZERO;
+                        let mut scale = Vec2::new(
+                            width / tile.tileset().tile_width as f32,
+                            height / tile.tileset().tile_height as f32,
+                        );
+                        if object_tile.flip_h {
+                            scale.x *= -1.;
+                            offset.x += width;
                         }
-                    });
-                    out
-                })
-                .unwrap_or_default(),
-            _ => vec![],
+                        if object_tile.flip_v {
+                            scale.y *= -1.;
+                            offset.y -= height;
+                        }
+                        polygons_from_tile(
+                            object_layer_data,
+                            filter,
+                            TilemapGridSize::new(width, height),
+                            offset,
+                            scale,
+                        )
+                    }),
+                }
+                .unwrap_or_default()
+            } else {
+                vec![]
+            }
+        }
+        TiledColliderOrigin::TilesLayer => {
+            let grid_size = grid_size_from_map(&map_asset.map);
+            let mut acc = vec![];
+            // Iterate over all tiles in the layer and create colliders for each
+            for (tile_position, tile) in source.get_tiles(assets, anchor) {
+                if let Some(collision) = &tile.collision {
+                    acc.extend(polygons_from_tile(
+                        collision,
+                        filter,
+                        grid_size,
+                        Vec2::new(
+                            tile_position.x - grid_size.x / 2.,
+                            tile_position.y - grid_size.y / 2.,
+                        ),
+                        Vec2::ONE,
+                    ));
+                }
+            }
+            acc
         }
     }
-}
+    .into_iter()
+    .map(|p| MultiPolygon::new(vec![p]))
+    .collect::<Vec<_>>();
 
-/// Spawn informations about a collider
-#[derive(Clone, Debug)]
-pub struct TiledColliderSpawnInfos {
-    /// Name of the collider.
-    pub name: String,
-    /// [Entity] of the spawned collider.
-    pub entity: Entity,
-    /// Relative position and rotation of the collider from its parent [Entity].
-    pub transform: Transform,
-}
+    // Try to simplify geometry: merge together adjacent polygons
+    let Some(polygons) = divide_reduce(polygons, |a, b| a.union(&b)) else {
+        return;
+    };
 
-/// Event sent when a new collider is created
-#[derive(Event, Component, Reflect, Clone, Debug, Copy)]
-#[event(auto_propagate, traversal = &'static ChildOf)]
-#[reflect(Component, Debug)]
-pub struct TiledColliderCreated {
-    /// [Entity] of the spawned collider.
-    pub entity: Entity,
-}
-
-impl TiledColliderCreated {
-    /// Create a new event
-    pub fn new(entity: Entity) -> Self {
-        Self { entity }
-    }
-}
-
-#[allow(clippy::too_many_arguments)]
-pub(super) fn spawn_colliders<T: super::TiledPhysicsBackend>(
-    backend: &T,
-    parent: Entity,
-    commands: &mut Commands,
-    tiled_map: &TiledMap,
-    names: &TiledName,
-    collider: &TiledCollider,
-    anchor: &TilemapAnchor,
-    event_writer: &mut EventWriter<TiledColliderCreated>,
-) {
-    for spawn_infos in backend.spawn_colliders(
-        commands,
-        tiled_map,
-        &TiledNameFilter::from(names),
-        collider,
-        anchor,
-    ) {
-        // Spawn collider
-        commands.entity(spawn_infos.entity).insert((
-            TiledColliderMarker,
-            Name::new(format!("Collider: {}", spawn_infos.name)),
+    // Actually spawn our colliders using provided physics backend
+    for entity in backend.spawn_colliders(commands, &source, &polygons) {
+        // Attach collider to its parent and insert additional components
+        commands.entity(entity).insert((
+            *source.event,
+            TiledColliderPolygons(polygons.to_owned()),
             ChildOf(parent),
-            spawn_infos.transform,
         ));
-        // Send corresponding event
-        let event = TiledColliderCreated::new(spawn_infos.entity);
-        commands.trigger_targets(event, parent);
-        event_writer.write(event);
+        // Patch origin entity and send collider event
+        let mut event = source;
+        event.origin = entity;
+        event.send(commands, event_writer);
     }
+}
+
+fn polygons_from_tile(
+    object_layer_data: &ObjectLayerData,
+    filter: &TiledFilter,
+    grid_size: TilemapGridSize,
+    offset: Vec2,
+    scale: Vec2,
+) -> Vec<GeoPolygon<f32>> {
+    let mut polygons = vec![];
+    for object in object_layer_data.object_data() {
+        if !filter.matches(&object.name) {
+            continue;
+        }
+
+        let pos = offset + Vec2::new(object.x * scale.x, grid_size.y - object.y * scale.y);
+        let transform = GlobalTransform::from_isometry(Isometry3d {
+            rotation: Quat::from_rotation_z(f32::to_radians(-object.rotation)),
+            translation: pos.extend(0.).into(),
+        }) * Transform::from_scale(scale.extend(1.));
+
+        if let Some(p) = TiledObject::from_object_data(object).polygon(&transform) {
+            polygons.push(p);
+        }
+    }
+    polygons
+}
+
+fn divide_reduce<T>(list: Vec<T>, mut reduction: impl FnMut(T, T) -> T) -> Option<T> {
+    let mut queue = VecDeque::from(list);
+
+    while queue.len() > 1 {
+        for _ in 0..(queue.len() / 2) {
+            let (one, two) = (queue.pop_front().unwrap(), queue.pop_front().unwrap());
+            queue.push_back(reduction(one, two));
+        }
+    }
+
+    queue.pop_back()
 }

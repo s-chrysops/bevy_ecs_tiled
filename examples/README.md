@@ -1,37 +1,37 @@
 # Examples
 
-This directory provides a list of examples which demonstrate how to use the crate.
+This directory provides a collection of examples demonstrating how to use the `bevy_ecs_tiled` crate in various scenarios.
 
-To run an example, you can run the following command, where XXX is the example name:
+To run an example, use the following command, replacing `XXX` with the example name:
 
 ```bash
 cargo run --example XXX
 ```
 
-Be advised that some of the examples require to enable one or multiple feature.
-In that case, cargo will return an error and print the proper command to run.
+> **Note:**  
+> Some examples require one or more feature flags to be enabled.  
+> If you attempt to run such an example without the required features, Cargo will display an error message with the correct command to use.
 
-Please note that if you want a more in-depth explanation of some of the crate concepts, there is a [dedicated book](https://adrien-bon.github.io/bevy_ecs_tiled/) to cover that.
+For a more in-depth explanation of crate concepts, see the [dedicated book](https://adrien-bon.github.io/bevy_ecs_tiled/).
 
-## Keyboard controls
+## Keyboard Controls
 
-In most of the examples, you can use the following action keys:
+Most examples support the following controls:
 
-- **WASD**: to move around the camera
-- **Z/X**: to zoom out / zoom in
-- **A/E**: to rotate the map (not only the camera)
+- **WASD**: Move the camera
+- **Z/X**: Zoom out / zoom in
+- **A/E**: Rotate the map (not just the camera)
 
-Note: some of on the key can be differents for "non-QWERTY" keyboard layout.
+> **Note for non-QWERTY layouts:**  
+> Some keys may differ.  
+> For example, on an AZERTY keyboard, use `A` instead of `Q` and `Z` instead of `W`.
 
-For instance, on an "AZERTY" keyboard, you must use `A` instead of `Q` and `Z` instead of `W`.
-
-## Examples list
+## Example List
 
 | Name | Required features | Description |
 |------|-------------------|-------------|
 | `map_anchor` | `debug` | This example shows the basic usage of `TilemapAnchor`. |
 | `map_basic` | None | This example shows the basic usage of the plugin to load a Tiled map. |
-| `map_demo` | None | This example shows the basic usage of the plugin but load a more complex / realistic map. |
 | `map_events` | None | This example shows how to use map loading events. |
 | `map_reload` | None | This example demonstrates how to load and unload maps. |
 | `map_settings` | None | This example cycles through different map settings that can be applied. |

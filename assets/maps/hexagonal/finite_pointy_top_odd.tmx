@@ -2,7 +2,7 @@
 <map version="1.10" tiledversion="1.11.0" orientation="hexagonal" renderorder="right-down" width="20" height="20" tilewidth="16" tileheight="16" infinite="0" hexsidelength="8" staggeraxis="y" staggerindex="odd" nextlayerid="5" nextobjectid="15">
  <tileset firstgid="1" source="../../tiles/drjamgo_hex_16x16.tsx"/>
  <imagelayer id="4" name="Image Layer 1" offsetx="134.27" offsety="-26.9557">
-  <image source="../../bevy_icon.png" width="256" height="256"/>
+  <image source="../../bevy_icon.png" width="257" height="247"/>
  </imagelayer>
  <layer id="1" name="TerrainLayer" width="20" height="20">
   <data encoding="csv">
@@ -38,6 +38,7 @@
        <properties>
         <property name="color" type="color" value="#ffff157a"/>
         <property name="id" type="int" value="42"/>
+        <property name="other_obj" type="object" value="4"/>
        </properties>
       </property>
      </properties>
@@ -74,11 +75,7 @@
     <property name="SpawnType" type="class" propertytype="properties_basic::SpawnType">
      <properties>
       <property name=":variant" propertytype="properties_basic::SpawnType:::Variant" value="Friendly"/>
-      <property name="Friendly" type="class" propertytype="properties_basic::SpawnType::Friendly">
-       <properties>
-        <property name="0" type="int" value="56"/>
-       </properties>
-      </property>
+      <property name="Friendly" value=""/>
      </properties>
     </property>
    </properties>

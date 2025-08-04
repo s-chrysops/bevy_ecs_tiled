@@ -12,7 +12,7 @@ fn main() {
         .add_plugins(DefaultPlugins.build().set(ImagePlugin::default_nearest()))
         // Add bevy_ecs_tiled plugin: bevy_ecs_tilemap::TilemapPlugin will
         // be automatically added as well if it's not already done
-        .add_plugins(TiledMapPlugin::default())
+        .add_plugins(TiledPlugin::default())
         // Examples helper plugins, such as the logic to pan and zoom the camera
         // This should not be used directly in your game (but you can always have a look)
         .add_plugins(helper::HelperPlugin)
@@ -64,8 +64,8 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
             c.insert((
                 TilemapAnchor::Center,
                 TiledPhysicsSettings::<TiledPhysicsAvianBackend> {
-                    objects_layer_filter: TiledName::None,
-                    tiles_objects_filter: TiledName::Names(vec![String::from("collision")]),
+                    objects_layer_filter: TiledFilter::None,
+                    tiles_objects_filter: TiledFilter::Names(vec![String::from("collision")]),
                     ..default()
                 },
             ));
@@ -79,8 +79,8 @@ fn startup(mut commands: Commands, asset_server: Res<AssetServer>) {
             c.insert((
                 TilemapAnchor::Center,
                 TiledPhysicsSettings::<TiledPhysicsAvianBackend> {
-                    objects_layer_filter: TiledName::All,
-                    tiles_objects_filter: TiledName::None,
+                    objects_layer_filter: TiledFilter::All,
+                    tiles_objects_filter: TiledFilter::None,
                     ..default()
                 },
             ));
